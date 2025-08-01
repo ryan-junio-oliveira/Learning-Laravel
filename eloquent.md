@@ -1,29 +1,31 @@
 
-# 📘 TUTORIAL DEFINITIVO: ELOQUENT MODELS NO LARAVEL
+# 📘 TUTORIAL COMPLETO E EXPLICADO: ELOQUENT MODELS NO LARAVEL
 
 ---
 
 ## 📌 SUMÁRIO
 
-1. [Introdução ao Eloquent](#1)
+1. [O que é o Eloquent ORM](#1)
 2. [Criando Models](#2)
-3. [Atributos Comuns](#3)
-4. [Relacionamentos](#4)
-5. [Mutators & Accessors](#5)
+3. [Atributos Comuns e Configurações](#3)
+4. [Relacionamentos e Tipos](#4)
+5. [Accessors & Mutators (Getters e Setters)](#5)
 6. [Casting de Atributos](#6)
-7. [Query Scopes](#7)
-8. [Observers e Events](#8)
-9. [Mass Assignment](#9)
-10. [Soft Deletes](#10)
+7. [Query Scopes (Filtros reutilizáveis)](#7)
+8. [Observers e Eventos](#8)
+9. [Mass Assignment (Preenchimento em massa)](#9)
+10. [Soft Deletes (Exclusão lógica)](#10)
 11. [Custom Collections e Casts](#11)
 12. [Outros Recursos Avançados](#12)
 
 ---
 
 <a name="1"></a>
-## ✅ 1. Introdução ao Eloquent
+## ✅ 1. O que é o Eloquent ORM
 
-Eloquent é o ORM oficial do Laravel. Cada model representa uma tabela no banco de dados.
+Eloquent é o ORM (Object Relational Mapper) do Laravel. Ele permite que você trabalhe com o banco de dados usando classes PHP ao invés de SQL puro.
+
+Cada **model representa uma tabela** e cada **instância representa uma linha**.
 
 ---
 
@@ -31,80 +33,75 @@ Eloquent é o ORM oficial do Laravel. Cada model representa uma tabela no banco 
 ## 🛠️ 2. Criando Models
 
 ```bash
-php artisan make:model Post
-php artisan make:model Post -mcr # cria também migration, controller e resource
+php artisan make:model Produto
+```
+
+Com migration, controller e resource:
+```bash
+php artisan make:model Produto -mcr
 ```
 
 ---
 
 <a name="3"></a>
-## 🧱 3. Atributos Comuns
+## 🧱 3. Atributos Comuns e Configurações
 
 ```php
-class Post extends Model
+class Produto extends Model
 {
-    protected $table = 'posts';
-    protected $primaryKey = 'id';
-    public $timestamps = true;
-    protected $fillable = ['title', 'content'];
-    protected $hidden = ['password'];
-    protected $casts = ['is_active' => 'boolean'];
+    protected $table = 'produtos';           // Define o nome da tabela
+    protected $primaryKey = 'id';            // Chave primária
+    public $timestamps = true;               // Cria 'created_at' e 'updated_at'
+    protected $fillable = ['nome', 'preco']; // Permite preenchimento em massa
+    protected $hidden = ['senha'];           // Oculta no JSON
+    protected $casts = ['preco' => 'decimal:2']; // Converte tipo automaticamente
 }
 ```
 
 ---
 
 <a name="4"></a>
-## 🔗 4. Relacionamentos
+## 🔗 4. Relacionamentos e Tipos
+
+Relacionamentos conectam tabelas:
+
+- `hasOne` / `belongsTo`: 1:1
+- `hasMany` / `belongsTo`: 1:N
+- `belongsToMany`: N:N
+- `morphTo`, `morphMany`: polimórficos
 
 ```php
-// One to One
-public function profile()
+public function categoria()
 {
-    return $this->hasOne(Profile::class);
+    return $this->belongsTo(Categoria::class);
 }
+```
 
-// One to Many
-public function posts()
+```php
+public function comentarios()
 {
-    return $this->hasMany(Post::class);
-}
-
-// Many to One
-public function user()
-{
-    return $this->belongsTo(User::class);
-}
-
-// Many to Many
-public function roles()
-{
-    return $this->belongsToMany(Role::class)->withTimestamps();
-}
-
-// Polimórficos
-public function imageable()
-{
-    return $this->morphTo();
+    return $this->hasMany(Comentario::class);
 }
 ```
 
 ---
 
 <a name="5"></a>
-## 🧬 5. Mutators & Accessors
+## 🧬 5. Accessors & Mutators (Getters e Setters)
 
+### Accessor (personaliza valor na leitura):
 ```php
-// Accessor
-public function getNameUpperAttribute()
+public function getNomeMaiusculoAttribute()
 {
-    return strtoupper($this->name);
+    return strtoupper($this->nome);
 }
+```
 
-// Mutator
-public function setNameAttribute($value)
+### Mutator (personaliza valor na escrita):
+```php
+public function setNomeAttribute($value)
 {
-    $this->attributes['name'] = strtolower($value);
+    $this->attributes['nome'] = ucfirst($value);
 }
 ```
 
@@ -113,104 +110,132 @@ public function setNameAttribute($value)
 <a name="6"></a>
 ## 🔁 6. Casting de Atributos
 
+Converte tipos automaticamente:
+
 ```php
 protected $casts = [
-    'email_verified_at' => 'datetime',
-    'settings' => 'array',
-    'active' => 'boolean',
+    'ativo' => 'boolean',
+    'config' => 'array',
+    'criado_em' => 'datetime',
 ];
 ```
 
 ---
 
 <a name="7"></a>
-## 🔍 7. Query Scopes
+## 🔍 7. Query Scopes (Filtros reutilizáveis)
+
+Permite criar filtros reutilizáveis nos models.
 
 ```php
-public function scopeActive($query)
+public function scopeAtivos($query)
 {
-    return $query->where('active', 1);
+    return $query->where('ativo', true);
 }
 ```
 
 Uso:
 ```php
-User::active()->get();
+Produto::ativos()->get();
 ```
 
 ---
 
 <a name="8"></a>
-## 🧠 8. Observers e Events
+## 🧠 8. Observers e Eventos
+
+Permite executar lógica quando algo acontece com o model (ex: salvando, criando, excluindo...).
 
 ```bash
-php artisan make:observer UserObserver --model=User
+php artisan make:observer ProdutoObserver --model=Produto
 ```
 
-Métodos disponíveis:
-- creating / created
-- updating / updated
-- saving / saved
-- deleting / deleted
+```php
+public function creating(Produto $produto)
+{
+    $produto->slug = Str::slug($produto->nome);
+}
+```
 
 ---
 
 <a name="9"></a>
-## 🛡️ 9. Mass Assignment
+## 🛡️ 9. Mass Assignment (Preenchimento em massa)
+
+### Para segurança, o Laravel exige que você declare quais campos podem ser preenchidos:
 
 ```php
-protected $fillable = ['name', 'email'];
-protected $guarded = ['admin'];
+protected $fillable = ['nome', 'preco'];
+```
+
+ou bloquear todos:
+
+```php
+protected $guarded = ['*'];
 ```
 
 ---
 
 <a name="10"></a>
-## 🧼 10. Soft Deletes
+## 🧼 10. Soft Deletes (Exclusão lógica)
+
+### Para que serve?
+
+Permite **"excluir" registros sem realmente apagar do banco**. Em vez disso, ele preenche a coluna `deleted_at`.
+
+### Como usar:
 
 ```php
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Post extends Model
+class Produto extends Model
 {
     use SoftDeletes;
-    protected $dates = ['deleted_at'];
 }
+```
+
+Na migration:
+
+```php
+$table->softDeletes();
+```
+
+### Consultas:
+
+```php
+Produto::withTrashed()->get();      // Todos
+Produto::onlyTrashed()->restore();  // Restaurar
+Produto::find($id)->forceDelete();  // Excluir permanentemente
 ```
 
 ---
 
 <a name="11"></a>
-## 🔄 11. Custom Collections & Custom Casts
+## 🔄 11. Custom Collections e Casts
 
 ### Custom Collection:
 ```php
-class CustomPostCollection extends Illuminate\Database\Eloquent\Collection
+class ProdutoCollection extends Illuminate\Database\Eloquent\Collection
 {
-    public function published()
+    public function ativos()
     {
-        return $this->filter->isPublished();
+        return $this->filter->ativo;
     }
-}
-
-public function newCollection(array $models = [])
-{
-    return new CustomPostCollection($models);
 }
 ```
 
 ### Custom Cast:
 ```php
-class JsonCast implements CastsAttributes
+class CurrencyCast implements CastsAttributes
 {
     public function get($model, string $key, $value, array $attributes)
     {
-        return json_decode($value);
+        return 'R$ ' . number_format($value, 2, ',', '.');
     }
 
     public function set($model, string $key, $value, array $attributes)
     {
-        return json_encode($value);
+        return str_replace(['R$', ',', '.'], ['', '.', ''], $value);
     }
 }
 ```
@@ -220,17 +245,18 @@ class JsonCast implements CastsAttributes
 <a name="12"></a>
 ## 🧰 12. Outros Recursos Avançados
 
-- `touches`: atualiza timestamps de modelos relacionados
-- `withDefault`: define valor padrão para `belongsTo`
-- `appends`: força atributos customizados em JSON
-- `replicate()`: clona registros
-- `loadMissing()`: lazy eager load
-- `firstOrCreate()`, `updateOrCreate()`
+- `withDefault()`: Define valor padrão para relacionamentos `belongsTo`
+- `replicate()`: Clona uma instância do model
+- `touches`: Atualiza timestamps de pai quando filho muda
+- `appends`: Força atributos calculados no JSON
+- `loadMissing()`: Lazy eager load
+- `firstOrCreate()`: Cria registro se não existir
+- `updateOrCreate()`: Atualiza ou cria
 
 ```php
-User::firstOrCreate(['email' => $email], ['name' => $name]);
+User::firstOrCreate(['email' => $email], ['name' => $nome]);
 ```
 
 ---
 
-Este tutorial cobre a base e recursos avançados do Eloquent. Para exemplos práticos, scaffolding com factories, seeders e testes, posso gerar um projeto base Laravel com os recursos desejados.
+Este material explica cada conceito com exemplos e objetivos. Ideal para revisão, estudo ou aplicação prática.
